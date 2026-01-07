@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -54,14 +55,22 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data envelo
 }
 
 func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	// Use http.MaxBytesReader() to limit the size of the request body to 1,048,576 bytes (1MB)
+	r.Body = http.MaxBytesReader(w, r.Body, 1_048_576)
+
+	// Initialize Decoder() and call the DisallowUnknownFields() method on it before decoding
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+
 	// Decode the request body into the target destination
-	err := json.NewDecoder(r.Body).Decode(dst)
+	err := dec.Decode(dst)
 	if err != nil {
 		// If there is an error during the decoding, start the triage ...
 		var (
 			syntaxError           *json.SyntaxError
 			unmarshalTypeError    *json.UnmarshalTypeError
 			invalidUnmarshalError *json.InvalidUnmarshalError
+			maxBytesError         *http.MaxBytesError
 		)
 
 		switch {
@@ -84,6 +93,15 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 		case errors.Is(err, io.EOF):
 			return errors.New("body must not be empty")
 
+		// If the JSON contains a field which cannot be mapped to the destination
+		case strings.HasPrefix(err.Error(), "json: unknown field "):
+			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
+			return fmt.Errorf("body contains unknown key %s", fieldName)
+
+		// Check for size limit of 1MB (*http.MaxBytesError)
+		case errors.As(err, &maxBytesError):
+			return fmt.Errorf("body must not be larger than %d bytes", maxBytesError.Limit)
+
 		// If something with non-nil pointer is passed, below error is returned
 		case errors.As(err, &invalidUnmarshalError):
 			panic(err)
@@ -93,5 +111,11 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 			return err
 		}
 	}
+
+	err = dec.Decode(&struct{}{})
+	if !errors.Is(err, io.EOF) {
+		return errors.New("body must only contain a single JSON value")
+	}
+
 	return nil
 }
