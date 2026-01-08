@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 // Declare a string containing the application version number.
@@ -17,6 +21,9 @@ const version = "1.0.0"
 type config struct {
 	port int
 	env  string
+	db   struct {
+		dsn string
+	}
 }
 
 // Define an application struct to hold the dependencies for our HTTP handlers, helpers,
@@ -34,10 +41,27 @@ func main() {
 	// Default port number 4000 and "development" env are used if not corresponding flags are provided
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
+
+	// Read the DSN value from the db-dsn command-line flag into the config struct
+	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("GREENLIGHT_DB_DSN"), "PosgreSQL DSN")
+
 	flag.Parse()
 
 	// Initialize a new structured logger which writes log entries to the std out stream
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	// Create db connection
+	db, err := openDB(cfg)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	// Defer a call to db.Close() so the connection pool is closed before the main() exits
+	defer db.Close()
+
+	// Log a message to say that the connection has been successful
+	logger.Info("database connection pool established")
 
 	// Declare an instance of the application struct, containing the config struct and logger
 	app := application{
@@ -58,7 +82,30 @@ func main() {
 	// Start the HTTP server
 	logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
 
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	logger.Error(err.Error())
 	os.Exit(1)
+}
+
+// It returns a sql.DB connection pool
+func openDB(cfg config) (*sql.DB, error) {
+	db, err := sql.Open("postgres", cfg.db.dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a context with a 5-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Establish a new connection to the db, passing in the context as parameter.
+	// If not connected within 5 seconds, will return error, and close the connection
+	err = db.PingContext(ctx)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	// Return the sql.DB connection pool
+	return db, nil
 }
