@@ -28,28 +28,19 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Copy the values from the input struct to a new Movie struct
+	movie := &data.Movie{
+		Title:   input.Title,
+		Year:    input.Year,
+		Runtime: input.Runtime,
+		Genres:  input.Genres,
+	}
+
 	// Initialze a new Validator instance
 	v := validator.New()
 
-	// Use the Check() method to execute our validation checks
-	v.Check(input.Title != "", "title", "must be provided")
-	v.Check(len(input.Title) <= 500, "title", "must not be more than 500 bytes long")
-
-	v.Check(input.Year != 0, "year", "must be provided")
-	v.Check(input.Year >= 1888, "year", "must be greater than 1888")
-	v.Check(input.Year <= int32(time.Now().Year()), "year", "must not be in the future")
-
-	v.Check(input.Runtime != 0, "runtime", "must be provided")
-	v.Check(input.Runtime > 0, "runtime", "must be a positive integer")
-
-	v.Check(input.Genres != nil, "genres", "must be provided")
-	v.Check(len(input.Genres) >= 1, "genres", "must contain at least 1 genre")
-	v.Check(len(input.Genres) <= 5, "genres", "must not contain more than 5 genres")
-	// Using Unique() helper to check all values in the input.Genres slice are unique
-	v.Check(validator.Unique(input.Genres), "genres", "must not contain duplicate values")
-
-	// Checking for a failed check
-	if !v.Valid() {
+	// Call ValidateMovie() function, and if any checks fail, return a response witht the errors
+	if data.ValidateMovie(v, movie); !v.Valid() {
 		app.failedValidatorResponse(w, r, v.Errors)
 		return
 	}
