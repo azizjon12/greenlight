@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/azizjon12/greenlight/internal/data"
 	_ "github.com/lib/pq"
 )
 
@@ -34,6 +35,7 @@ type config struct {
 type application struct {
 	config config
 	logger *slog.Logger
+	models data.Models
 }
 
 func main() {
@@ -72,9 +74,10 @@ func main() {
 	logger.Info("database connection pool established")
 
 	// Declare an instance of the application struct, containing the config struct and logger
-	app := application{
+	app := &application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(db),
 	}
 
 	// Use the httprouter instance returned by app.routes() as the server handler
@@ -83,7 +86,7 @@ func main() {
 		Handler:      app.routes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
+		WriteTimeout: 10 * time.Second,
 		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
 

@@ -1,9 +1,11 @@
 package data
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/azizjon12/greenlight/internal/validator"
+	"github.com/lib/pq"
 )
 
 type Movie struct {
@@ -33,4 +35,35 @@ func ValidateMovie(v *validator.Validator, movie *Movie) {
 	v.Check(len(movie.Genres) <= 5, "genres", "must not contain more than 5 genres")
 	// Using Unique() helper to check all values in the movie.Genres slice are unique
 	v.Check(validator.Unique(movie.Genres), "genres", "must not contain duplicate values")
+}
+
+// Define MovieModel struct type which wraps a sql.DB connection pool
+type MovieModel struct {
+	DB *sql.DB
+}
+
+// Accepts a pointer to a Movie struct
+func (m *MovieModel) Insert(movie *Movie) error {
+	query := `
+		INSERT INTO movies (title, year, runtime, genres)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at, version`
+	
+	// Create args slice containing values for the placeholder parameters
+	args := []any{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
+	
+	// Use QueryRow() to execute the SQL query on our connection pool
+	return m.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+}
+
+func (m *MovieModel) Get(id int64) (*Movie, error) {
+	return nil, nil
+}
+
+func (m *MovieModel) Update(movie *Movie) error {
+	return nil
+}
+
+func (m *MovieModel) Delete(id int64) error {
+	return nil
 }
