@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/azizjon12/greenlight/internal/data"
 	"github.com/azizjon12/greenlight/internal/validator"
@@ -75,13 +75,19 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	movie := data.Movie{
-		ID:        id,
-		CreatedAt: time.Now(),
-		Title:     "Casablanca",
-		Runtime:   102,
-		Genres:    []string{"drama", "romance", "war"},
-		Version:   1,
+	// Call the Get() method to fetch data for a specific movie. To check if returns
+	// data.ErrRecordNotFound error we use Errors.Is() function
+	movie, err := app.models.Movies.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+
+		return
 	}
 
 	// Create an envelope{"movie": movie} instance and pass it to writeJSON(),
