@@ -44,7 +44,7 @@ type MovieModel struct {
 }
 
 // Accepts a pointer to a Movie struct
-func (m *MovieModel) Insert(movie *Movie) error {
+func (m MovieModel) Insert(movie *Movie) error {
 	query := `
 		INSERT INTO movies (title, year, runtime, genres)
 		VALUES ($1, $2, $3, $4)
@@ -57,7 +57,7 @@ func (m *MovieModel) Insert(movie *Movie) error {
 	return m.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
 }
 
-func (m *MovieModel) Get(id int64) (*Movie, error) {
+func (m MovieModel) Get(id int64) (*Movie, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -94,10 +94,27 @@ func (m *MovieModel) Get(id int64) (*Movie, error) {
 	return &movie, nil
 }
 
-func (m *MovieModel) Update(movie *Movie) error {
-	return nil
+func (m MovieModel) Update(movie *Movie) error {
+	// SQL query for updating the record and returning new version number
+	query := `
+		UPDATE movies
+		SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1
+		WHERE id = $5
+		RETURNING version`
+
+	// Create an args slice containing the placeholder parameter values
+	args := []any{
+		movie.Title,
+		movie.Year,
+		movie.Runtime,
+		pq.Array(movie.Genres),
+		movie.ID,
+	}
+
+	// Use the QueryRow() to execute the query
+	return m.DB.QueryRow(query, args...).Scan(&movie.Version)
 }
 
-func (m *MovieModel) Delete(id int64) error {
+func (m MovieModel) Delete(id int64) error {
 	return nil
 }
