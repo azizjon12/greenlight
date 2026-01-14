@@ -121,12 +121,12 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Declare an input struct to hold the expected data from the client
+	// Use pointers for the Title, Year and Runtime fields
 	var input struct {
-		Title   string       `json:"title"`
-		Year    int32        `json:"year"`
-		Runtime data.Runtime `json:"runtime"`
-		Genres  []string     `json:"genres"`
+		Title   *string       `json:"title"`
+		Year    *int32        `json:"year"`
+		Runtime *data.Runtime `json:"runtime"`
+		Genres  []string      `json:"genres"`
 	}
 
 	err = app.readJSON(w, r, &input)
@@ -135,11 +135,25 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Copy the values from the requested body to the appropriate fields of the movie record
-	movie.Title = input.Title
-	movie.Year = input.Year
-	movie.Runtime = input.Runtime
-	movie.Genres = input.Genres
+	// If the input.Title value is nil, means "title" value is provided. Move on and leave movie record unchanged.
+	// Otherwise, update the movie record with the new title value. Note, need to dereference pointer using *
+	// before assigning it to our movie record
+	if input.Title != nil {
+		movie.Title = *input.Title
+	}
+
+	// Do the same for the other fields in input struct
+	if input.Year != nil {
+		movie.Year = *input.Year
+	}
+
+	if input.Runtime != nil {
+		movie.Runtime = *input.Runtime
+	}
+
+	if input.Genres != nil {
+		movie.Genres = input.Genres // Note, we do not need to dereference a slice
+	}
 
 	// Validate the updated movie record, if fail send a 422 Unprocessablw Entity
 	v := validator.New()
