@@ -41,7 +41,7 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 
 	// Call ValidateMovie() function, and if any checks fail, return a response witht the errors
 	if data.ValidateMovie(v, movie); !v.Valid() {
-		app.failedValidatorResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
@@ -159,7 +159,7 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 	v := validator.New()
 
 	if data.ValidateMovie(v, movie); !v.Valid() {
-		app.failedValidatorResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
@@ -236,15 +236,24 @@ func (app *application) listMovieHandler(w http.ResponseWriter, r *http.Request)
 	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
 
 	input.Filters.Sort = app.readString(qs, "sort", "id")
-	// Add the supported sort values for this endpoint to the sort safelist
 	input.Filters.SortSafelist = []string{"id", "title", "year", "runtime", "-id", "-title", "-year", "-runtime"}
 
 	// Execute the validation checks on the Filters struct and send a response containing the errors if necessary
 	if data.ValidateFilters(v, input.Filters); !v.Valid() {
-		app.failedValidatorResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
-	// Dump the contents of the input struct in an HTTP response
-	fmt.Fprintf(w, "%+v\n", input)
+	// Call the GetAll() method to retrieve the movies, passing in the various filter parameters
+	movies, err := app.models.Movies.GetAll(input.Title, input.Genres, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// Send a JSON response containing the movie data
+	err = app.writeJSON(w, http.StatusOK, envelope{"movies": movies}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
