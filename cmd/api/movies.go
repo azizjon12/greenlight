@@ -212,3 +212,40 @@ func (app *application) deleteMovieHandler(w http.ResponseWriter, r *http.Reques
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) listMovieHandler(w http.ResponseWriter, r *http.Request) {
+	// Keep consistency, define an input to hold the expected values from the request query string
+	var input struct {
+		Title    string
+		Genres   []string
+		Page     int
+		PageSize int
+		Sort     string
+	}
+
+	// Initialize a new Validator instance
+	v := validator.New()
+
+	// Call r.URL.Query() to get the url.Values map containing the query string data
+	qs := r.URL.Query()
+
+	// Use our helpers to extract the title and genres query string values
+	input.Title = app.readString(qs, "title", "")
+	input.Genres = app.readCSV(qs, "genres", []string{})
+
+	// Get the page and page_size query string values as integers
+	input.Page = app.readInt(qs, "page", 1, v)
+	input.PageSize = app.readInt(qs, "page_size", 20, v)
+
+	// Extract the sort query string value, falling back to "id" if not provided by client
+	input.Sort = app.readString(qs, "sort", "id")
+
+	// Check Validator instance for any errors and use the failedValidationResponse helper for response
+	if !v.Valid() {
+		app.failedValidatorResponse(w, r, v.Errors)
+		return
+	}
+
+	// Dump the contents of the input struct in an HTTP response
+	fmt.Fprintf(w, "%+v\n", input)
+}
