@@ -216,11 +216,9 @@ func (app *application) deleteMovieHandler(w http.ResponseWriter, r *http.Reques
 func (app *application) listMovieHandler(w http.ResponseWriter, r *http.Request) {
 	// Keep consistency, define an input to hold the expected values from the request query string
 	var input struct {
-		Title    string
-		Genres   []string
-		Page     int
-		PageSize int
-		Sort     string
+		Title  string
+		Genres []string
+		data.Filters
 	}
 
 	// Initialize a new Validator instance
@@ -233,15 +231,16 @@ func (app *application) listMovieHandler(w http.ResponseWriter, r *http.Request)
 	input.Title = app.readString(qs, "title", "")
 	input.Genres = app.readCSV(qs, "genres", []string{})
 
-	// Get the page and page_size query string values as integers
-	input.Page = app.readInt(qs, "page", 1, v)
-	input.PageSize = app.readInt(qs, "page_size", 20, v)
+	// Read the page, page_size and sort query string into embedded struct
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
 
-	// Extract the sort query string value, falling back to "id" if not provided by client
-	input.Sort = app.readString(qs, "sort", "id")
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	// Add the supported sort values for this endpoint to the sort safelist
+	input.Filters.SortSafelist = []string{"id", "title", "year", "runtime", "-id", "-title", "-year", "-runtime"}
 
-	// Check Validator instance for any errors and use the failedValidationResponse helper for response
-	if !v.Valid() {
+	// Execute the validation checks on the Filters struct and send a response containing the errors if necessary
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
 		app.failedValidatorResponse(w, r, v.Errors)
 		return
 	}
