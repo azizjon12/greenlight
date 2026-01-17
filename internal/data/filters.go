@@ -14,6 +14,29 @@ type Filters struct {
 	SortSafelist []string
 }
 
+// Define a new Metadata struct for holding the pagination metadata
+type Metadata struct {
+	CurrentPage  int `json:"current_page,omitzero"`
+	PageSize     int `json:"page_size,omitzero"`
+	FirstPage    int `json:"first_page,omitzero"`
+	LastPage     int `json:"last_page,omitzero"`
+	TotalRecords int `json:"total_records,omitzero"`
+}
+
+func calculateMetadata(totalRecords, page, pageSize int) Metadata {
+	if totalRecords == 0 {
+		return Metadata{} // Return empty Metadata is there are no records
+	}
+
+	return Metadata{
+		CurrentPage:  page,
+		PageSize:     pageSize,
+		FirstPage:    1,
+		LastPage:     (totalRecords + pageSize - 1) / pageSize,
+		TotalRecords: totalRecords,
+	}
+}
+
 // Check that the client-provided Sort field matches one of the entries in our safelist.
 // If so, extract the column name from the Sort by stripping "-" if exists
 func (f Filters) sortColumn() string {

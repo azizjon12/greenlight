@@ -179,9 +179,9 @@ func (m MovieModel) Delete(id int64) error {
 }
 
 // Create a new method which returns a slice of movies
-func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, error) {
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
 	query := fmt.Sprintf(`
-		SELECT id, created_at, title, year, runtime, genres, version
+		SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
 		FROM movies
 		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
 		AND (genres @> $2 OR $2 = '{}')
@@ -197,19 +197,21 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*M
 	// Pass the title and genres as the placeholder parameter values
 	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 
 	// Defer a call to rows.Close() to ensure that the resultset is closed before GetAll() returns
 	defer rows.Close()
 
-	// Initialize an empty slice to hold the movie data
+	// Declare a totalRecords variable
+	totalRecords := 0
 	movies := []*Movie{}
 
 	for rows.Next() {
 		var movie Movie
 
 		err := rows.Scan(
+			&totalRecords,
 			&movie.ID,
 			&movie.CreatedAt,
 			&movie.Title,
@@ -220,7 +222,7 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*M
 		)
 
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err
 		}
 
 		// Add the Movie struct to the slice
@@ -229,9 +231,12 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*M
 
 	// After the rows.Next() loop has finished, call rows.Err() to retrieve errors
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 
-	// If everything went OK, then return the slice of movies
-	return movies, nil
+	// Generate Metadata struct, passing in the total record count and pagination parameters from client
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+
+	// Include Metadata struct when returning
+	return movies, metadata, nil
 }
