@@ -17,6 +17,8 @@ func (app *application) routes() http.Handler {
 	// Doing the same for methodNotAllowed() helper
 	router.MethodNotAllowed = http.HandlerFunc(app.methodNotAllowedResponse)
 
+	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.healthcheckHandler)
+
 	// Add the route for the GET /v1/movies/ endpoint
 	router.HandlerFunc(http.MethodGet, "/v1/movies", app.listMovieHandler)
 	router.HandlerFunc(http.MethodPost, "/v1/movies", app.createMovieHandler)
@@ -24,6 +26,6 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodPatch, "/v1/movies/:id", app.updateMovieHandler)
 	router.HandlerFunc(http.MethodDelete, "/v1/movies/:id", app.deleteMovieHandler)
 
-	// Wrap the router with the panic recovery middleware
-	return app.recoverPanic(router)
+	// Wrap the router with the rateLimit() middleware
+	return app.recoverPanic(app.rateLimit(router))
 }
