@@ -93,6 +93,13 @@ func main() {
 		models: data.NewModels(db),
 	}
 
+	// Call app.serve() to start the server
+	err = app.serve()
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
 	// Use the httprouter instance returned by app.routes() as the server handler
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
