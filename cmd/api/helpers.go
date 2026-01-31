@@ -163,3 +163,19 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int, v *
 
 	return i
 }
+
+func (app *application) background(fn func()) {
+	// Launch a background goroutine
+	go func ()  {
+		// Recover any panic
+		defer func ()  {
+			pv := recover()
+			if pv != nil {
+				app.logger.Error(fmt.Sprintf("%v", pv))
+			}
+		}()
+
+		// Execute the arbitrary function that we passed as the parameter
+		fn()
+	}()
+}

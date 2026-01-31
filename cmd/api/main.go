@@ -4,13 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/azizjon12/greenlight/internal/data"
+	"github.com/azizjon12/greenlight/internal/mailer"
 	_ "github.com/lib/pq"
 )
 
@@ -36,6 +35,15 @@ type config struct {
 		burst   int
 		enabled bool
 	}
+
+	// Add a new smtp struct to hold SMTP server settings
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 // Define an application struct to hold the dependencies for our HTTP handlers, helpers,
@@ -44,6 +52,7 @@ type application struct {
 	config config
 	logger *slog.Logger
 	models data.Models
+	mailer *mailer.Mailer
 }
 
 func main() {
@@ -68,6 +77,12 @@ func main() {
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
 
+	flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "SMTP port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", os.Getenv("GL_SMTP_USERNAME"), "SMTP username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", os.Getenv("GL_SMTP_PASSWORD"), "SMTP password")
+	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "Greenlight <no-reply@greenlight.azizhaknazarov.com>", "SMTP sender")
+
 	flag.Parse()
 
 	// Initialize a new structured logger which writes log entries to the std out stream
@@ -86,11 +101,18 @@ func main() {
 	// Log a message to say that the connection has been successful
 	logger.Info("database connection pool established")
 
-	// Declare an instance of the application struct, containing the config struct and logger
+	mailer, err := mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	// Declare an instance of the application struct, containing the config struct, logger and others
 	app := &application{
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
+		mailer: mailer,
 	}
 
 	// Call app.serve() to start the server
@@ -100,22 +122,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Use the httprouter instance returned by app.routes() as the server handler
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
-	}
+	// // Use the httprouter instance returned by app.routes() as the server handler
+	// srv := &http.Server{
+	// 	Addr:         fmt.Sprintf(":%d", cfg.port),
+	// 	Handler:      app.routes(),
+	// 	IdleTimeout:  time.Minute,
+	// 	ReadTimeout:  5 * time.Second,
+	// 	WriteTimeout: 10 * time.Second,
+	// 	ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
+	// }
 
-	// Start the HTTP server
-	logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
+	// // Start the HTTP server
+	// logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
 
-	err = srv.ListenAndServe()
-	logger.Error(err.Error())
-	os.Exit(1)
+	// err = srv.ListenAndServe()
+	// logger.Error(err.Error())
+	// os.Exit(1)
 }
 
 // It returns a sql.DB connection pool
