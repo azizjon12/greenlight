@@ -123,23 +123,6 @@ func main() {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
-
-	// // Use the httprouter instance returned by app.routes() as the server handler
-	// srv := &http.Server{
-	// 	Addr:         fmt.Sprintf(":%d", cfg.port),
-	// 	Handler:      app.routes(),
-	// 	IdleTimeout:  time.Minute,
-	// 	ReadTimeout:  5 * time.Second,
-	// 	WriteTimeout: 10 * time.Second,
-	// 	ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
-	// }
-
-	// // Start the HTTP server
-	// logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
-
-	// err = srv.ListenAndServe()
-	// logger.Error(err.Error())
-	// os.Exit(1)
 }
 
 // It returns a sql.DB connection pool

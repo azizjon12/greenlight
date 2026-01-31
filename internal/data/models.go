@@ -13,6 +13,7 @@ var (
 // Wraps the MovieModel. Other models like UserModel, PermissionModel will be added
 type Models struct {
 	Movies MovieModel
+	Tokens TokenModel // Add a new Tokens field
 	Users  UserModel
 }
 
@@ -20,6 +21,7 @@ type Models struct {
 func NewModels(db *sql.DB) Models {
 	return Models{
 		Movies: MovieModel{DB: db},
+		Tokens: TokenModel{DB: db}, // Initialize a new TokenModel instance
 		Users:  UserModel{DB: db},
 	}
 }
