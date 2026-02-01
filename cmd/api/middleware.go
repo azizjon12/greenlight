@@ -1,11 +1,15 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/azizjon12/greenlight/internal/data"
+	"github.com/azizjon12/greenlight/internal/validator"
 	"github.com/tomasen/realip"
 	"golang.org/x/time/rate"
 )
@@ -99,6 +103,61 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 		// Unlock mutex before calling the next handler in the chain
 		mu.Unlock()
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (app *application) authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add the "Vary: Authorization" header to the response
+		w.Header().Add("Vary", "Authorization")
+
+		// Retrieve the value of the Authorization header from the request
+		authorizationHeader := r.Header.Get("Authorization")
+
+		if authorizationHeader == "" {
+			r = app.contextSetUser(r, data.AnonymousUser)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Otherwise, the value will be in format "Bearer <token>". Split into constituent parts.
+		// If header is not in expected format, return a 401 Unauthorized response
+		headerParts := strings.Split(authorizationHeader, " ")
+		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+			app.invalidCredentialsResponse(w, r)
+			return
+		}
+
+		// Extract the actual authentication token from the header parts
+		token := headerParts[1]
+
+		// Validate the token to make sure it is in a sensible format
+		v := validator.New()
+
+		if data.ValidateTokenPlaintext(v, token); !v.Valid() {
+			app.invalidCredentialsResponse(w, r)
+			return
+		}
+
+		// Retrieve the details of the user associated with the authentication token
+		user, err := app.models.Users.GetForToken(data.ScopeAuthentication, token)
+		if err != nil {
+			switch {
+			case errors.Is(err, data.ErrRecordNotFound):
+				app.invalidAuthenticationTokenResponse(w, r)
+
+			default:
+				app.serverErrorResponse(w, r, err)
+			}
+
+			return
+		}
+
+		// Call the contextSetUser() helper to add the user information to the request context
+		r = app.contextSetUser(r, user)
+
+		// Call the next handler in the chain
 		next.ServeHTTP(w, r)
 	})
 }

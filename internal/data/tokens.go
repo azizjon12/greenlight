@@ -11,16 +11,17 @@ import (
 )
 
 const (
-	ScopeActivation = "activation"
+	ScopeActivation     = "activation"
+	ScopeAuthentication = "authentication" // Include a new authentication scope
 )
 
-// Define a Token struct to hold the data for an individual token
+// Add struct tags to control how the struct appears when encoded to JSON
 type Token struct {
-	Plaintext string
-	Hash      []byte
-	UserID    int64
-	Expiry    time.Time
-	Scope     string
+	Plaintext string    `json:"token"`
+	Hash      []byte    `json:"-"`
+	UserID    int64     `json:"-"`
+	Expiry    time.Time `json:"expiry"`
+	Scope     string    `json:"-"`
 }
 
 func generateToken(userID int64, ttl time.Duration, scope string) *Token {
@@ -32,10 +33,10 @@ func generateToken(userID int64, ttl time.Duration, scope string) *Token {
 		Scope:     scope,
 	}
 
-	// Generate a SHA-256 hash of the plaintext token string. This will be the value 
-  // that we store in the `hash` column of our database table.
-	// sha256.Sum256() function returns an *array* of length 32, so to make it easier to  
-  // work with we convert it to a slice using the [:] operator before storing it.
+	// Generate a SHA-256 hash of the plaintext token string. This will be the value
+	// that we store in the `hash` column of our database table.
+	// sha256.Sum256() function returns an *array* of length 32, so to make it easier to
+	// work with we convert it to a slice using the [:] operator before storing it.
 	hash := sha256.Sum256([]byte(token.Plaintext))
 	token.Hash = hash[:]
 
