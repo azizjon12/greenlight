@@ -32,6 +32,7 @@ func (app *application) routes() http.Handler {
 	// Add the route for the POST /v1/tokens/authentication endpoint
 	router.HandlerFunc(http.MethodPost, "/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 
-	// Wrap the router with the rateLimit() middleware and use the authenticate() middleware on all requests
-	return app.recoverPanic(app.rateLimit(app.authenticate(router)))
+	// Wrap the router with the rateLimit() middleware and use the authenticate() middleware on all requests.
+	// Add the enableCORS() middleware
+	return app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(router))))
 }

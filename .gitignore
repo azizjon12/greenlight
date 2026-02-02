@@ -15,6 +15,7 @@
 .idea/
 .DS_Store
 .idea
+cmd/examples
 #cmd/grpc-client/grpc-client
 #cmd/grpc-server/grpc-server
 #cmd/grpc-server/assets/
