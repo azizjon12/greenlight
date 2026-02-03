@@ -15,12 +15,14 @@ import (
 
 	"github.com/azizjon12/greenlight/internal/data"
 	"github.com/azizjon12/greenlight/internal/mailer"
+	"github.com/azizjon12/greenlight/internal/vcs"
 	_ "github.com/lib/pq"
 )
 
-// Declare a string containing the application version number.
-// Later we will try to generate this automatically at build time
-const version = "1.0.0"
+// Make version a variable (rather than a constant), set its value to vcs.Version()
+var (
+	version = vcs.Version()
+)
 
 // Define a config struct to hold all the configuration settings for our application.
 type config struct {
