@@ -16,8 +16,10 @@
 .DS_Store
 .idea
 cmd/examples
+bin/
 #cmd/grpc-client/grpc-client
 #cmd/grpc-server/grpc-server
 #cmd/grpc-server/assets/
 *.toml
 .env
+.envrc
